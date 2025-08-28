@@ -1,7 +1,6 @@
 from typing import Any
 from pathlib import Path
 import requests
-
 import os
 
 
@@ -20,6 +19,11 @@ def create_dataset(
     nomad_url: str = NOMAD_API_URL,
     nomad_token: str = NOMAD_API_TOKEN,
 ) -> dict[str, Any]:
+    """
+    Create a new "dataset".
+
+    The dataset contains upload.
+    """
     return requests.post(
         f"{nomad_url}datasets/",
         headers={
@@ -31,8 +35,30 @@ def create_dataset(
     ).json()
 
 
-def upload_file_to_nomad(
+def create_upload(
+    upload_name: str,
+    nomad_url: str = NOMAD_API_URL,
+    nomad_token: str = NOMAD_API_TOKEN,
+):
+    """
+    Create a new "upload".
+
+    The upload created in this class is a directory containing other uploads.
+    """
+
+    return requests.post(
+        f"{nomad_url}uploads?upload_name={upload_name}",
+        headers={
+            "Authorization": f"Bearer {nomad_token}",
+            "Accept": "application/json",
+        },
+        timeout=30,
+    ).json()
+
+
+def add_file_to_upload(
     upload_path: Path,
+    parent_upload_name: str,
     nomad_url: str = NOMAD_API_URL,
     nomad_token: str = NOMAD_API_TOKEN,
 ):
@@ -40,8 +66,8 @@ def upload_file_to_nomad(
     automatically decompressed.
     """
     with upload_path.open("rb") as f:
-        return requests.post(
-            f"{nomad_url}uploads?file_name={upload_path.name}",
+        return requests.put(
+            f"{nomad_url}uploads/{parent_upload_name}/raw/{upload_path.name}",
             headers={
                 "Authorization": f"Bearer {nomad_token}",
                 "Accept": "application/json",
@@ -81,11 +107,12 @@ def add_upload_metadata(
 
 
 def query(
-    query_fields: list[str], page_size=1, required: list[str] | None = None
+    query_fields: list[str],
+    page_size=1,
+    required: list[str] | None = None,
+    nomad_url: str = NOMAD_API_URL,
+    nomad_token: str = NOMAD_API_TOKEN,
 ) -> dict[str, Any]:
-    if not query_fields:
-        return {}
-
     query = {
         "query": {"all": query_fields},
         "pagination": {"page_size": page_size},
@@ -93,7 +120,14 @@ def query(
     if required:
         query.update({"required": {"include": required}})
 
-    return requests.post(f"{NOMAD_API_URL}/entries/query", json=query).json()
+    return requests.post(
+        f"{nomad_url}/entries/query",
+        json=query,
+        headers={
+            "Authorization": f"Bearer {nomad_token}",
+            "Accept": "application/json",
+        },
+    ).json()
 
 
 # TODO:
